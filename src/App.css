@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+#root {
+  margin: 0 auto;
+  padding: 1rem;
+  text-align: center;
+  background-color: #151225;
+}
+
+
+.coin {
+  width: 200px;
+  height: 200px;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.coin .face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  background-size: cover;
+}
+
+.coin .face.front {
+  transform: rotateY(0deg);
+  z-index: 2; /* Красная сторона сверху */
+}
+
+.coin .face.back {
+  transform: rotateY(180deg);
+  z-index: 1; /* Зелёная сторона снизу */
+}
