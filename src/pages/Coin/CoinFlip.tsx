@@ -5,11 +5,12 @@ import {
   selectCoinFlipState,
   placeBet,
   makeChoice,
-  resetCoinFlipGame
+  resetCoinFlipGame,
+  setCoinFlipResult,
+  startCoinFlipGame,
+  endCoinFlipGame
 } from "../../features/gamesSlice";
-import { 
-  placeCoinFlipBet, 
-  makeCoinFlipChoice,
+import socket, { 
   connectSocket,
   disconnectSocket
 } from "../../socket";
@@ -18,6 +19,39 @@ import LiveBets from "./LiveBets";
 
 const CoinFlip = () => {
   const dispatch = useDispatch();
+  
+  useEffect(() => {
+    const handleGameStart = () => {
+      setSpinning(false);
+      setCountDown(5); // Устанавливаем таймер на 5 секунд для ставок
+      console.log(`Время для ставок начинается в: ${new Date().toLocaleTimeString()}`); // Лог времени начала ставок
+      dispatch(startCoinFlipGame()); // Устанавливаем isGameStarted в true
+      setTimeout(() => {
+        setSpinning(true); // Запускаем анимацию вращения
+        console.log("Анимация вращения запущена"); // Лог состояния spinning
+        setTimeout(() => {
+          setSpinning(false); // Останавливаем анимацию через 5 секунд
+          console.log("Анимация вращения остановлена"); // Лог состояния spinning
+          setCountDown(9); // Устанавливаем таймер на 9 секунд ожидания результата
+        }, 5000); // Время вращения
+      }, 5000); // Время ожидания ставок
+    };
+
+    const handleGameResult = (result: number) => { // Указываем тип для result
+      dispatch(setCoinFlipResult(result)); // Устанавливаем результат
+      dispatch(endCoinFlipGame()); // Устанавливаем isGameStarted в false
+      console.log(`Результат игры: ${result}`); // Лог результата
+    };
+
+    socket.on('coinFlip:start', handleGameStart);
+    socket.on('coinFlip:result', handleGameResult);
+
+    return () => {
+      socket.off('coinFlip:start', handleGameStart);
+      socket.off('coinFlip:result', handleGameResult);
+    };
+  }, [dispatch]);
+  
   const coinFlipState = useSelector(selectCoinFlipState);
   const { result, history } = coinFlipState;
   const [bet, setBet] = useState(0);
@@ -41,14 +75,14 @@ const CoinFlip = () => {
       return;
     }
 
+    // Обновляем состояние ставок и отправляем данные на сервер
     dispatch(placeBet({ userId: user.id, bet, choice }));
+    
+    // Обновляем состояние выбора и отправляем данные на сервер
     dispatch(makeChoice({ userId: user.id, choice }));
     
-    placeCoinFlipBet(user, bet, choice);
-    makeCoinFlipChoice(user, choice);
-    
     setUserGambled(true);
-    console.log(`User choice: ${choice === 0 ? "Heads" : "Tails"}, Bet: K₽${bet}`); // Лог выбора пользователя
+    console.log(`User choice: ${choice === 0 ? "Tails" : "Heads"}, Bet: K₽${bet}`); // Лог выбора пользователя
   };
 
   useEffect(() => {
@@ -58,20 +92,6 @@ const CoinFlip = () => {
       disconnectSocket();
     };
   }, []);
-
-  useEffect(() => {
-    if (result !== null) {
-      setSpinning(false);
-      console.log(`Coin flip result: ${result === 0 ? "Heads" : "Tails"}`); // Лог результата монеты
-      setTimeout(() => {
-        // Reset the betting state after the animation completes
-        setBet(0);
-        setChoice(null);
-        dispatch(resetCoinFlipGame());
-        setCountDown(9); // Устанавливаем countdown в соответствии с сервером
-      }, 1200);
-    }
-  }, [result, dispatch]);
 
   useEffect(() => {
     if (countDown > 0 && !spinning) {
@@ -163,6 +183,9 @@ const CoinFlip = () => {
         {["Heads", "Tails"].map((type, i) => (
           <LiveBets type={type} key={i} />
         ))}
+      </div>
+      <div className="result-display">
+        <h2>Результат: {result !== null ? (result === 0 ? "Heads" : "Tails") : "Игра еще не началась"}</h2>
       </div>
     </div>
   );

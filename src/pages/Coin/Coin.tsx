@@ -14,28 +14,18 @@ const Coin: React.FC<CoinProps> = ({ result, spinning }) => {
 
     useEffect(() => {
         const spinCoin = () => {
-            controls.start({ 
-                rotateY: 3600, 
-            });
+            controls.set({ rotateY: 0 });
+            controls.start({ rotateY: 3600, transition: { duration: 5, ease: "linear" } }); // Fast-spin
         };
 
         const slowSpin = () => {
-            const finalRotation = result === 0 ? 3600 + 180 : 3600 + 360; // Heads is red, Tails is green
-            controls.start({ 
-                rotateY: finalRotation,
-                transition: { 
-                    duration: 1.2, // Время вращения
-                    ease: [0.33, 1, 0.68, 1] 
-                } 
-            });
+            controls.start({ rotateY: result === 0 ? 3600 + 360 : 3600 + 540, transition: { duration: 2, ease: [0.33, 1, 0.68, 1] } }); // Slow-spin to the final result
         };
 
         if (spinning) {
             spinCoin();
-        } else if (result !== null) {
-            slowSpin();
         } else {
-            controls.stop();
+            slowSpin();
         }
     }, [spinning, result, controls]);
 

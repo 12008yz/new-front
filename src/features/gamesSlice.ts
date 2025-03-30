@@ -105,25 +105,41 @@ const gamesSlice = createSlice({
     },
     placeBet(state, action: PayloadAction<{ userId: string; bet: number; choice: number }>) {
       const { userId, bet, choice } = action.payload;
-      const betType = choice === 0 ? 'heads' : 'tails';
-      state.coinFlip.bets[betType][userId] = bet;
-      
-      // Обновление баланса пользователя
       const user = state.users[userId];
-      if (user) {
-        user.walletBalance -= bet;
+    
+      if (user && user.walletBalance >= bet) {
+        const betType = choice === 0 ? 'heads' : 'tails';
+        state.coinFlip.bets[betType][userId] = bet;
+        user.walletBalance -= bet; // Обновление баланса пользователя
+      } else {
+        console.error(`User  ${userId} does not have enough balance to place the bet.`);
       }
     },
     makeChoice(state, action: PayloadAction<{ userId: string; choice: number }>) {
       const { userId, choice } = action.payload;
       const choiceType = choice === 0 ? 'heads' : 'tails';
       state.coinFlip.choices[choiceType][userId] = choice;
-      
+
       // Логирование выбора
-      console.log(`User ${userId} chose ${choiceType}`);
+      console.log(`User  ${userId} chose ${choiceType}`);
     },
     setCoinFlipResult(state, action: PayloadAction<number>) {
-      state.coinFlip.result = action.payload;
+      const result = action.payload;
+      state.coinFlip.result = result;
+    
+      // Обновление баланса пользователей, которые выиграли
+      const winningChoice = result === 0 ? 'heads' : 'tails';
+      for (const userId in state.coinFlip.choices[winningChoice]) {
+        const betAmount = state.coinFlip.bets[winningChoice][userId];
+        if (betAmount) {
+          const user = state.users[userId];
+          if (user) {
+            user.walletBalance += betAmount * 2; // Увеличиваем баланс на выигрыш
+            // Обновляем данные пользователя
+            state.users[userId] = { ...user }; // Обновляем пользователя в состоянии
+          }
+        }
+      }
     },
     updateCoinFlipGameState(
       state,
@@ -144,6 +160,10 @@ const gamesSlice = createSlice({
     },
     startCoinFlipGame(state) {
       state.coinFlip.isGameStarted = true;
+      state.coinFlip.result = null; // Сброс результата при начале новой игры
+    },
+    endCoinFlipGame(state) {
+      state.coinFlip.isGameStarted = false; // Завершение игры
     },
     resetCoinFlipGame(state) {
       state.coinFlip = {
@@ -176,7 +196,7 @@ const gamesSlice = createSlice({
       const { userId, walletBalance } = action.payload;
       const user = state.users[userId];
       if (user) {
-        user.walletBalance = walletBalance;
+        user.walletBalance = walletBalance; // Обновление баланса пользователя
       }
     },
   },
@@ -228,6 +248,7 @@ const gamesSlice = createSlice({
   },
 });
 
+// Экспортируем действия
 export const { 
   setLoading, 
   setError, 
@@ -240,6 +261,7 @@ export const {
   setCoinFlipResult,
   updateCoinFlipGameState,
   startCoinFlipGame,
+  endCoinFlipGame,
   resetCoinFlipGame,
   updateUserData
 } = gamesSlice.actions;
