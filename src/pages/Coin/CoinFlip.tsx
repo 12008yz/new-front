@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { userApi, useGetMeQuery } from "../../app/services/users/UserServicer"; // Импортируем userApi
 import { motion } from "framer-motion";
 import { 
   selectCoinFlipState,
@@ -19,7 +20,8 @@ import LiveBets from "./LiveBets";
 
 const CoinFlip = () => {
   const dispatch = useDispatch();
-  
+  const { data: user, isLoading } = useGetMeQuery(); // Загрузка данных пользователя
+
   useEffect(() => {
     const handleGameStart = () => {
       setSpinning(false);
@@ -60,9 +62,11 @@ const CoinFlip = () => {
   const [countDown, setCountDown] = useState(0);
   const [userGambled, setUserGambled] = useState(false);
 
-  const user = useSelector((state: any) => state.user.user);
-
   const handleBet = () => {
+    if (isLoading) {
+      console.error('Данные пользователя загружаются, подождите.');
+      return;
+    }
     if (choice === null || bet <= 0) return;
     
     if (!user) {
@@ -76,13 +80,12 @@ const CoinFlip = () => {
     }
 
     // Обновляем состояние ставок и отправляем данные на сервер
-    dispatch(placeBet({ userId: user.id, bet, choice }));
-    
-    // Обновляем состояние выбора и отправляем данные на сервер
-    dispatch(makeChoice({ userId: user.id, choice }));
+    dispatch(placeBet({ userId: Number(user.id), bet, choice })); // Приведение user.id к типу number
+    dispatch(makeChoice({ userId: Number(user.id), choice })); // Приведение user.id к типу number
     
     setUserGambled(true);
     console.log(`User choice: ${choice === 0 ? "Tails" : "Heads"}, Bet: K₽${bet}`); // Лог выбора пользователя
+    console.log('Пользователь:', user);
   };
 
   useEffect(() => {

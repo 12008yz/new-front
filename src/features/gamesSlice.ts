@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { gamesApi } from '../app/services/games/GamesServices';
 import { userApi } from '../app/services/users/UserServicer';
-import { BasicItem } from '../app/types';
+import { BasicItem, User } from '../app/types';
 
 interface OpenBoxResult {
   success: boolean;
@@ -34,10 +34,6 @@ interface CoinFlipState {
   isGameStarted: boolean;
 }
 
-interface User {
-  id: string;
-  walletBalance: number;
-}
 
 interface GamesState {
   loading: boolean;
@@ -45,7 +41,7 @@ interface GamesState {
   gameResults: OpenBoxResult | null;
   selectedItem: BasicItem | null;
   coinFlip: CoinFlipState;
-  users: Record<string, User>;
+  users: Record<number, User>; // Изменено на number
 }
 
 const initialState: GamesState = {
@@ -103,9 +99,9 @@ const gamesSlice = createSlice({
     clearSelectedItem(state) {
       state.selectedItem = null;
     },
-    placeBet(state, action: PayloadAction<{ userId: string; bet: number; choice: number }>) {
+    placeBet(state, action: PayloadAction<{ userId: number; bet: number; choice: number }>) {
       const { userId, bet, choice } = action.payload;
-      const user = state.users[userId];
+      const user = state.users[userId]; // Убедимся, что user не undefined
     
       if (user && user.walletBalance >= bet) {
         const betType = choice === 0 ? 'heads' : 'tails';
@@ -115,11 +111,12 @@ const gamesSlice = createSlice({
         console.error(`User  ${userId} does not have enough balance to place the bet.`);
       }
     },
-    makeChoice(state, action: PayloadAction<{ userId: string; choice: number }>) {
+    makeChoice(state, action: PayloadAction<{ userId: number; choice: number }>) {
       const { userId, choice } = action.payload;
       const choiceType = choice === 0 ? 'heads' : 'tails';
       state.coinFlip.choices[choiceType][userId] = choice;
-
+      console.log('ПОЛЬЗОВАТЕЛЬ В CHOISE', userId);
+      
       // Логирование выбора
       console.log(`User  ${userId} chose ${choiceType}`);
     },
@@ -129,7 +126,8 @@ const gamesSlice = createSlice({
     
       // Обновление баланса пользователей, которые выиграли
       const winningChoice = result === 0 ? 'heads' : 'tails';
-      for (const userId in state.coinFlip.choices[winningChoice]) {
+      for (const userIdStr in state.coinFlip.choices[winningChoice]) {
+        const userId = Number(userIdStr); // Приведение userId к типу number
         const betAmount = state.coinFlip.bets[winningChoice][userId];
         if (betAmount) {
           const user = state.users[userId];
@@ -192,7 +190,7 @@ const gamesSlice = createSlice({
         isGameStarted: false,
       };
     },
-    updateUserData(state, action: PayloadAction<{ userId: string; walletBalance: number }>) {
+    updateUserData(state, action: PayloadAction<{ userId: number; walletBalance: number }>) {
       const { userId, walletBalance } = action.payload;
       const user = state.users[userId];
       if (user) {
@@ -217,6 +215,17 @@ const gamesSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to open box';
       })
+      .addMatcher(userApi.endpoints.getMe.matchFulfilled, (state, action) => {
+        console.log("Данные пользователя из getMe:", action.payload); // Лог для отладки
+        state.loading = false;
+        state.error = null;
+    
+        // Обновляем состояние users с помощью updateUserData
+        state.users[action.payload.id] = {
+            ...action.payload,
+            walletBalance: action.payload.walletBalance // Убедитесь, что walletBalance правильно устанавливается
+        };
+    })
       .addMatcher(gamesApi.endpoints.upgradeItem.matchPending, (state) => {
         state.loading = true;
         state.error = null;

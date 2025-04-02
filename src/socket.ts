@@ -48,7 +48,8 @@ socket.on('coinFlip:result', (result) => {
   store.dispatch(setCoinFlipResult(result)); // Обновляем результат броска монеты
 });
 
-socket.on('userDataUpdated', (userData) => {
+  socket.on('userDataUpdated', (userData) => {
+      console.log("Received user data update:", userData); // Логирование обновленных данных пользователя
   store.dispatch(updateUserData(userData)); // Обновляем данные пользователя
 });
 
@@ -61,12 +62,12 @@ export const disconnectSocket = () => {
   socket.disconnect();
 };
 
-socket.on('coinFlip:bet', ({ userId, bet, choice }) => {
+socket.on('coinFlip:bet', ({ userId, bet, choice }: { userId: number; bet: number; choice: number }) => {
   console.log(`Ставка от пользователя ${userId}: K₽${bet} на ${choice === 0 ? "Heads" : "Tails"} в ${new Date().toLocaleTimeString()}`);
   store.dispatch(placeBet({ userId, bet, choice })); // Обновляем состояние ставок
 });
 
-socket.on('coinFlip:choice', ({ userId, choice }) => {
+socket.on('coinFlip:choice', ({ userId, choice }: { userId: number; choice: number }) => {
   store.dispatch(makeChoice({ userId, choice })); // Обновляем состояние выбора
 });
 
