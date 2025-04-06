@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { userApi, useGetMeQuery } from "../../app/services/users/UserServicer"; // Импортируем userApi
 import { motion } from "framer-motion";
 import { 
   selectCoinFlipState,
@@ -17,10 +16,11 @@ import socket, {
 } from "../../socket";
 import Coin from "./Coin";
 import LiveBets from "./LiveBets";
+import { setUser } from "../../features/userSlice";
 
 const CoinFlip = () => {
   const dispatch = useDispatch();
-  const { data: user, isLoading } = useGetMeQuery(); // Загрузка данных пользователя
+  const user = useSelector((state: any) => state.user.user);
 
   useEffect(() => {
     const handleGameStart = () => {
@@ -61,32 +61,37 @@ const CoinFlip = () => {
   const [spinning, setSpinning] = useState(false);
   const [countDown, setCountDown] = useState(0);
   const [userGambled, setUserGambled] = useState(false);
+  
+// Ставка пользователя
+const handleBet = () => {
+  if (choice === null || bet <= 0) return;
 
-  const handleBet = () => {
-    if (isLoading) {
-      console.error('Данные пользователя загружаются, подождите.');
-      return;
-    }
-    if (choice === null || bet <= 0) return;
-    
-    if (!user) {
-      console.error('User not found');
-      return;
-    }
+  if (!user) {
+    console.error('User not found');
+    return;
+  }
 
-    if (user.walletBalance < bet) {
-      console.error('Insufficient balance');
-      return;
-    }
+  if (user.walletBalance < bet) {
+    console.error('Insufficient balance');
+    return;
+  }
 
-    // Обновляем состояние ставок и отправляем данные на сервер
-    dispatch(placeBet({ userId: Number(user.id), bet, choice })); // Приведение user.id к типу number
-    dispatch(makeChoice({ userId: Number(user.id), choice })); // Приведение user.id к типу number
-    
-    setUserGambled(true);
-    console.log(`User choice: ${choice === 0 ? "Tails" : "Heads"}, Bet: K₽${bet}`); // Лог выбора пользователя
-    console.log('Пользователь:', user);
-  };
+  console.log(`Bet: ${bet}, Choice: ${choice}, User ID: ${user ? user.id : 'No user'}`); // Debugging log
+  console.log('Current user state:', user); // Additional log to check user state
+  socket.emit('coinFlip:bet', { user: { id: user.id }, bet, choice });
+  socket.emit('coinFlip:choice', { user: { id: user.id }, choice });
+
+  // Обновляем состояние ставок в Redux
+  dispatch(placeBet({ userId: user.id, bet, choice }));
+
+  // Обновляем состояние выбора в Redux и отправляем данные на сервер
+  dispatch(makeChoice({ userId: user.id, choice }));
+
+
+  setUserGambled(true);
+  console.log(`User choice: ${choice === 0 ? "Tails" : "Heads"}, Bet: K₽${bet}`); // Лог выбора пользователя
+  console.log('Пользователь:', user);
+};
 
   useEffect(() => {
     connectSocket();

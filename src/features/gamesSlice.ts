@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { gamesApi } from '../app/services/games/GamesServices';
 import { userApi } from '../app/services/users/UserServicer';
 import { BasicItem, User } from '../app/types';
+import { setUser } from '../features/userSlice';
 
 interface OpenBoxResult {
   success: boolean;
@@ -110,6 +111,7 @@ const gamesSlice = createSlice({
       } else {
         console.error(`User  ${userId} does not have enough balance to place the bet.`);
       }
+      setUser(user)
     },
     makeChoice(state, action: PayloadAction<{ userId: number; choice: number }>) {
       const { userId, choice } = action.payload;
@@ -123,21 +125,6 @@ const gamesSlice = createSlice({
     setCoinFlipResult(state, action: PayloadAction<number>) {
       const result = action.payload;
       state.coinFlip.result = result;
-    
-      // Обновление баланса пользователей, которые выиграли
-      const winningChoice = result === 0 ? 'heads' : 'tails';
-      for (const userIdStr in state.coinFlip.choices[winningChoice]) {
-        const userId = Number(userIdStr); // Приведение userId к типу number
-        const betAmount = state.coinFlip.bets[winningChoice][userId];
-        if (betAmount) {
-          const user = state.users[userId];
-          if (user) {
-            user.walletBalance += betAmount * 2; // Увеличиваем баланс на выигрыш
-            // Обновляем данные пользователя
-            state.users[userId] = { ...user }; // Обновляем пользователя в состоянии
-          }
-        }
-      }
     },
     updateCoinFlipGameState(
       state,
@@ -195,8 +182,11 @@ const gamesSlice = createSlice({
       const user = state.users[userId];
       if (user) {
         user.walletBalance = walletBalance; // Обновление баланса пользователя
+        // Обновляем состояние пользователя через setUser
+        setUser(user); // Вызываем setUser для обновления состояния пользователя
       }
-    },
+    }
+    
   },
   extraReducers: (builder) => {
     builder
@@ -215,17 +205,6 @@ const gamesSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to open box';
       })
-      .addMatcher(userApi.endpoints.getMe.matchFulfilled, (state, action) => {
-        console.log("Данные пользователя из getMe:", action.payload); // Лог для отладки
-        state.loading = false;
-        state.error = null;
-    
-        // Обновляем состояние users с помощью updateUserData
-        state.users[action.payload.id] = {
-            ...action.payload,
-            walletBalance: action.payload.walletBalance // Убедитесь, что walletBalance правильно устанавливается
-        };
-    })
       .addMatcher(gamesApi.endpoints.upgradeItem.matchPending, (state) => {
         state.loading = true;
         state.error = null;
@@ -244,6 +223,17 @@ const gamesSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
+      .addMatcher(userApi.endpoints.getMe.matchFulfilled, (state, action) => {
+        console.log("Данные пользователя из getMe:", action.payload); // Лог для отладки
+        state.loading = false;
+        state.error = null;
+    
+        // Обновляем состояние users с помощью updateUserData
+        state.users[action.payload.id] = {
+            ...action.payload,
+            walletBalance: action.payload.walletBalance // Убедитесь, что walletBalance правильно устанавливается
+        };
+    })
       .addMatcher(gamesApi.endpoints.spinSlots.matchFulfilled, (state) => {
         state.loading = false;
         state.error = null;
